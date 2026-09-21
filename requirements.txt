@@ -1,0 +1,7 @@
+ipykernel
+matplotlib
+numpy
+trimesh
+k3d
+scipy
+torch

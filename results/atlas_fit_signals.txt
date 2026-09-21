@@ -1,0 +1,42 @@
+  20/134 ears (2.3 min)
+  40/134 ears (4.1 min)
+  60/134 ears (6.0 min)
+  80/134 ears (8.0 min)
+  100/134 ears (9.7 min)
+  120/134 ears (11.5 min)
+current (11 typical refs): 3.2981
+
+how well each signal ranks references (mean per-ear Spearman with true error):
+  rigid      rho +0.347
+  bend       rho +0.332
+  lmbend     rho +0.262
+  post       rho +0.568
+  consensus  rho +0.524
+
+top  5 by rigid                          2.8860  vs current -0.4120 (t -7.6)
+top 11 by rigid                          2.8697  vs current -0.4284 (t -10.7)
+top 20 by rigid                          2.9644  vs current -0.3337 (t -11.7)
+top  5 by bend                           2.9134  vs current -0.3847 (t -6.9)
+top 11 by bend                           2.8839  vs current -0.4141 (t -10.1)
+top 20 by bend                           2.9736  vs current -0.3245 (t -11.3)
+top  5 by lmbend                         2.9997  vs current -0.2983 (t -5.4)
+top 11 by lmbend                         3.0001  vs current -0.2980 (t -7.0)
+top 20 by lmbend                         3.0594  vs current -0.2386 (t -7.7)
+top  5 by post                           2.7406  vs current -0.5574 (t -11.9)
+top 11 by post                           2.7892  vs current -0.5089 (t -13.2)
+top 20 by post                           2.8850  vs current -0.4130 (t -14.5)
+top  5 by consensus                      3.2134  vs current -0.0847 (t -4.3)
+top 11 by consensus                      3.1571  vs current -0.1410 (t -7.3)
+top 20 by consensus                      3.1146  vs current -0.1835 (t -10.2)
+top 11 by rank(bend+consensus)           2.9842  vs current -0.3139 (t -12.2)
+top 20 by rank(bend+consensus)           2.9930  vs current -0.3051 (t -13.3)
+top 11 by rank(lmbend+consensus)         2.9942  vs current -0.3038 (t -12.6)
+top 20 by rank(lmbend+consensus)         3.0036  vs current -0.2944 (t -13.5)
+top 11 by rank(rigid+bend+consensus)     2.9229  vs current -0.3751 (t -11.5)
+top 20 by rank(rigid+bend+consensus)     2.9653  vs current -0.3327 (t -12.7)
+soft weights bend tau 0.5                2.8540  vs current -0.4440 (t -10.2)
+soft weights bend tau 1.0                2.9398  vs current -0.3583 (t -12.4)
+soft weights lmbend tau 0.5              2.9462  vs current -0.3518 (t -8.0)
+soft weights lmbend tau 1.0              3.0166  vs current -0.2815 (t -9.8)
+soft weights consensus tau 0.5           3.1425  vs current -0.1555 (t -8.5)
+soft weights consensus tau 1.0           3.1259  vs current -0.1722 (t -10.3)

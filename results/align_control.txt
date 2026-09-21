@@ -1,0 +1,11 @@
+same example order: True; target length differs by max 9.54e-07 (rotation only)
+133 subjects, 3000 train / 990 held-out examples
+seed 0 world    train 1.522  held-out 1.993  (2293s)
+seed 0 aligned  train 1.767  held-out 2.253  (4362s)
+seed 1 world    train 1.524  held-out 1.998  (3203s)
+seed 1 aligned  train 1.870  held-out 2.327  (4990s)
+
+world    held-out mean over seeds: 1.996
+aligned  held-out mean over seeds: 2.290
+aligned - world (per held-out example): +0.2942  (t +8.2)
+per anchor (aligned - world): 0:+0.20 6:+0.20 22:+0.43 24:+0.04 25:+0.73 33:+0.33 42:-0.01 46:+0.23 50:+0.08 54:+0.00 55:+0.43 64:+0.28 74:+0.26 75:+0.54 84:+0.68

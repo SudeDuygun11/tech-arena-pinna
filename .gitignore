@@ -1,0 +1,29 @@
+# bytecode, editor and assistant state
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.vscode/
+.claude/
+
+# competition data (2.7 GB; not ours to redistribute) -- put it back locally, do not commit
+2026 Munich Tech Arena - Datas/
+
+# regenerable caches and downloaded weights
+cache/
+weights/
+*.pkl
+results/registration_cache/
+results/example_cache/
+results/part_screens/
+results/part_screens_*/
+
+# probe outputs: keep summaries and the few small files later analyses read,
+# drop the large arrays (two of them exceed GitHub's 100 MB file limit)
+results/*.npz
+results/*.npy
+!results/twopass_surfsnap.npz
+!results/local_refine.npz
+!results/t2_on_average.npy
+!results/feature_probe_r4.npz
+
+# NOT ignored on purpose: results/full_run_*/ (bundles, predictions, manifest, logs, checksums)

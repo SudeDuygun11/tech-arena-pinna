@@ -1,0 +1,25 @@
+template with 40 references built in 24s
+  registered 10/134 ears (1.3 min)
+  registered 20/134 ears (2.1 min)
+  registered 30/134 ears (2.9 min)
+  registered 40/134 ears (3.7 min)
+  registered 50/134 ears (4.7 min)
+  registered 60/134 ears (5.6 min)
+  registered 70/134 ears (6.5 min)
+  registered 80/134 ears (7.4 min)
+  registered 90/134 ears (8.3 min)
+  registered 100/134 ears (9.1 min)
+  registered 110/134 ears (9.9 min)
+  registered 120/134 ears (10.7 min)
+  registered 130/134 ears (11.6 min)
+mean of first 11 (current)         all 3.2981  anchors 3.3239
+mean of first 5                    all 3.1253  anchors 3.1878   vs k=11 -0.1728 (t -5.7)
+mean of first 20                   all 3.2360  anchors 3.2550   vs k=11 -0.0620 (t -5.9)
+mean of first 30                   all 3.2002  anchors 3.2217   vs k=11 -0.0978 (t -8.8)
+mean of first 40                   all 3.2017  anchors 3.2208   vs k=11 -0.0964 (t -9.4)
+median of 40                       all 3.1594  anchors 3.1607   vs k=11 -0.1387 (t -11.3)
+consensus-selected 11 of 40        all 3.1571  anchors 3.1734   vs k=11 -0.1410 (t -7.3)
+consensus-selected 20 of 40        all 3.1146  anchors 3.1367   vs k=11 -0.1835 (t -10.2)
+ORACLE best 11 of 40 per ear       all 2.4068  anchors 2.5269   vs k=11 -0.8912 (t -23.1)
+
+single-reference error: mean 4.093; best reference per ear 2.489

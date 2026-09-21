@@ -1,0 +1,59 @@
+template 100 refs in 58s
+  check ear 0 ref 0 reproduces earlier probe: True
+  check ear 0 ref 1 reproduces earlier probe: True
+  check ear 0 ref 2 reproduces earlier probe: True
+  slow ear 4: 67395s
+  10/134 ears (1128.2 min)
+  20/134 ears (1134.0 min)
+  30/134 ears (1140.0 min)
+  40/134 ears (1145.9 min)
+  50/134 ears (1152.4 min)
+  60/134 ears (1158.5 min)
+  70/134 ears (1165.0 min)
+  80/134 ears (1171.4 min)
+  90/134 ears (1177.3 min)
+  100/134 ears (1183.1 min)
+  110/134 ears (1188.8 min)
+  120/134 ears (1194.8 min)
+  130/134 ears (1200.8 min)
+11 typical refs (current)                    all 3.2981  anchors 3.3239
+
+G: global fit (post) top-k
+pool 40, top 5  (earlier finding)            all 2.7406  anchors 2.7815  vs base -0.5574 (t -11.9)
+pool 100, top 3                              all 2.6004  anchors 2.7004  vs base -0.6977 (t -10.5)
+pool 100, top 5                              all 2.5793  anchors 2.6713  vs base -0.7187 (t -12.2)
+pool 100, top 8                              all 2.5824  anchors 2.6609  vs base -0.7157 (t -13.1)
+pool 100, top 12                             all 2.6209  anchors 2.6838  vs base -0.6771 (t -13.5)
+
+L: local fit per landmark, top-k
+pool 100, top 3                              all 2.7532  anchors 2.8044  vs base -0.5449 (t -11.2)
+pool 100, top 5                              all 2.6804  anchors 2.7055  vs base -0.6177 (t -13.7)
+pool 100, top 8                              all 2.6734  anchors 2.6900  vs base -0.6246 (t -15.3)
+pool 100, top 12                             all 2.6859  anchors 2.6954  vs base -0.6122 (t -16.6)
+
+M: rank mix (local + global)
+pool 100, top 5, rank(loc)+rank(post)        all 2.5026  anchors 2.5631  vs base -0.7955 (t -14.4)
+pool 100, top 8, rank(loc)+rank(post)        all 2.5141  anchors 2.5796  vs base -0.7839 (t -15.2)
+
+O: oracles (use truth: ceilings only)
+best 5 per ear by true error                 all 1.9815  anchors 2.1804  vs base -1.3166 (t -22.8)
+best 5 per LANDMARK by true error            all 0.7369  anchors 0.7258  vs base -2.5612 (t -45.3)
+best 11 per ear by true error                all 2.0521  anchors 2.2219  vs base -1.2459 (t -24.2)
+best 11 per LANDMARK by true error           all 0.9439  anchors 0.9364  vs base -2.3542 (t -48.6)
+
+S: learned selector (grouped CV by subject)
+  fold 0 done
+  fold 1 done
+  fold 2 done
+  fold 3 done
+  fold 4 done
+learned selector, top 3                      all 2.5808  anchors 2.6596  vs base -0.7173 (t -15.6)
+learned selector, top 5                      all 2.5843  anchors 2.6563  vs base -0.7138 (t -16.5)
+learned selector, top 8                      all 2.6119  anchors 2.6761  vs base -0.6862 (t -17.0)
+learned selector, top 12                     all 2.6516  anchors 2.7099  vs base -0.6464 (t -17.5)
+
+per part, best rows:
+  outer_helix          11 typical 3.525  G pool40 top5 2.942  L pool100 top5 2.912  S learned top5 2.827
+  concha_outline       11 typical 2.594  G pool40 top5 2.095  L pool100 top5 1.931  S learned top5 1.971
+  inner_helix          11 typical 3.974  G pool40 top5 3.478  L pool100 top5 3.496  S learned top5 3.211
+  superior_antihelix   11 typical 3.492  G pool40 top5 2.699  L pool100 top5 2.718  S learned top5 2.563

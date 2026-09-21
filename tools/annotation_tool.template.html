@@ -1,0 +1,610 @@
+<title>Pinna Anchor Bench</title>
+<style>
+:root{
+  --bg:#f6f5f2; --panel:#fffdfa; --ink:#1c1a17; --muted:#6b655c; --line:#ddd7cc;
+  --accent:#8a5a2b; --warn:#9c4221; --gt:#1f6feb; --shadow:rgba(28,26,23,.08);
+  --k-local:#2f6b4f; --k-extremal:#9c4221; --k-junction:#7048a8;
+  --k-reference:#0b6b78; --k-head:#8a5a2b; --k-constructed:#6b655c;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#14130f; --panel:#1e1c18; --ink:#efeae1; --muted:#a49c8f; --line:#343029;
+  --accent:#d9a066; --warn:#e08a62; --gt:#6ea8ff; --shadow:rgba(0,0,0,.4);
+  --k-local:#7fc7a0; --k-extremal:#e08a62; --k-junction:#b79aec;
+  --k-reference:#5fc2d0; --k-head:#d9a066; --k-constructed:#a49c8f;
+}}
+:root[data-theme="dark"]{
+  --bg:#14130f; --panel:#1e1c18; --ink:#efeae1; --muted:#a49c8f; --line:#343029;
+  --accent:#d9a066; --warn:#e08a62; --gt:#6ea8ff; --shadow:rgba(0,0,0,.4);
+  --k-local:#7fc7a0; --k-extremal:#e08a62; --k-junction:#b79aec;
+  --k-reference:#5fc2d0; --k-head:#d9a066; --k-constructed:#a49c8f;
+}
+html{font-size:22px}                 /* UI scale -- the A-/A+ control writes this */
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:1rem/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;}
+h1{font-size:1.3rem;margin:0;font-weight:650;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:.72rem;margin-top:2px}
+header{padding:14px 18px;border-bottom:1px solid var(--line);background:var(--panel);
+  display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 21rem;height:calc(100vh - 74px);min-height:520px}
+@media(max-width:880px){.wrap{grid-template-columns:1fr;height:auto}#stage{height:56vh}}
+#stage{position:relative;background:var(--bg);min-height:380px}
+canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lab{position:absolute;transform:translate(-50%,-50%);font-size:15px;font-weight:700;
+  font-variant-numeric:tabular-nums;line-height:1;padding:3px 7px;border-radius:99px;
+  border:2px solid var(--accent);background:var(--panel);color:var(--accent);
+  box-shadow:0 1px 4px var(--shadow);white-space:nowrap}
+.lab.gt{border-color:var(--gt);color:var(--gt)}
+.lab.cur{background:var(--accent);color:var(--panel)}
+#hud{position:absolute;left:12px;bottom:12px;font-size:14px;color:var(--muted);
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;
+  box-shadow:0 1px 3px var(--shadow);pointer-events:none}
+aside{border-left:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:.9rem}
+@media(max-width:880px){aside{border-left:0;border-top:1px solid var(--line)}}
+.task{border:1px solid var(--line);border-radius:.55rem;padding:.8rem;margin-bottom:.7rem;background:var(--bg)}
+.task .idx{font-weight:700;font-size:1.15rem}
+.task .def{margin-top:.45rem;font-size:.95rem;line-height:1.5}
+.kind{display:inline-block;font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;
+  padding:3px 9px;border-radius:99px;border:1px solid currentColor;font-weight:650;vertical-align:2px}
+.k-local{color:var(--k-local)} .k-extremal{color:var(--k-extremal)}
+.k-junction{color:var(--k-junction)} .k-reference{color:var(--k-reference)}
+.k-head{color:var(--k-head)} .k-constructed{color:var(--k-constructed)}
+ol.list{list-style:none;margin:0;padding:0}
+ol.list li{display:flex;gap:9px;align-items:center;padding:.42rem .5rem;border-radius:.4rem;
+  font-size:.82rem;cursor:pointer;border:1px solid transparent}
+ol.list li:hover{background:var(--bg)}
+ol.list li.cur{border-color:var(--accent);background:var(--bg)}
+ol.list li .n{width:1.6rem;font-variant-numeric:tabular-nums;color:var(--muted);flex:none}
+ol.list li .dot{width:11px;height:11px;border-radius:50%;background:var(--line);flex:none}
+ol.list li.done .dot{background:var(--accent)}
+ol.list li .d{margin-left:auto;font-variant-numeric:tabular-nums;font-size:.78rem;color:var(--muted)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+button{font:inherit;font-size:.82rem;padding:.42rem .8rem;border-radius:.4rem;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel);font-weight:600}
+button:disabled{opacity:.45;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:10px}
+th,td{text-align:left;padding:.28rem .34rem;border-bottom:1px solid var(--line)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.score{font-size:1.8rem;font-weight:700;font-variant-numeric:tabular-nums}
+.legend{font-size:.74rem;color:var(--muted);margin-top:10px;line-height:1.7}
+textarea{width:100%;height:110px;font:11px/1.4 ui-monospace,monospace;background:var(--bg);
+  color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px}
+.hidden{display:none}
+</style>
+
+<header>
+  <div>
+    <h1>Pinna Anchor Bench</h1>
+    <div class="sub" id="subtitle">loading&hellip;</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:.5rem">
+    <span class="sub">size</span>
+    <button id="smaller" title="smaller">A&minus;</button>
+    <button id="bigger" title="bigger">A+</button>
+    <span class="sub" style="margin-left:.4rem">relief</span>
+    <input id="relief" type="range" min="0" max="1.2" step="0.05" value="0.55"
+           style="width:6rem;accent-color:var(--accent)">
+    <button id="crest" title="tint ridge crests amber, valleys teal">ridge</button>
+    <button id="lateral" title="back to the lateral view">lateral</button>
+    <button id="tilt" title="rotate 90 degrees for the superior/top check">tilt 90&deg;</button>
+  </div>
+  <div class="sub">drag&nbsp;rotate &middot; wheel&nbsp;zoom &middot; shift-drag&nbsp;pan &middot; click&nbsp;place</div>
+</header>
+
+<div class="wrap">
+  <div id="stage"><canvas id="gl"></canvas><div id="labels"></div><div id="hud">&nbsp;</div></div>
+  <aside>
+    <div class="task" id="task"><div class="idx">&mdash;</div><div class="def"></div></div>
+    <div class="btns">
+      <button id="undo">Undo</button>
+      <button id="skip">Skip</button>
+      <button id="reveal" class="primary" disabled>Reveal &amp; score</button>
+    </div>
+    <ol class="list" id="list"></ol>
+    <div id="results" class="hidden"></div>
+    <div class="legend">
+      <b>Definition type</b> &mdash; how much of the ear you must look at.<br>
+      <span class="kind k-local">local</span> curvature or saddle &middot;
+      <span class="kind k-extremal">extremal</span> needs the whole contour &middot;
+      <span class="kind k-junction">junction</span> where two contours meet &middot;
+      <span class="kind k-reference">reference</span> defined by another landmark &middot;
+      <span class="kind k-head">head</span> needs geometry outside the ear &middot;
+      <span class="kind k-constructed">constructed</span> not a feature at all
+    </div>
+  </aside>
+</div>
+
+<script>
+const PAYLOAD = __PAYLOAD__;
+
+function b64(s, Type){
+  const bin = atob(s), buf = new ArrayBuffer(bin.length), u8 = new Uint8Array(buf);
+  for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+  return new Type(buf);
+}
+const V  = b64(PAYLOAD.verts, Float32Array);
+const F  = b64(PAYLOAD.faces, PAYLOAD.face_kind==="u32"?Uint32Array:Uint16Array);
+const GT = b64(PAYLOAD.gt, Float32Array);
+const ANCH = PAYLOAD.anchor_indices;
+const NV = PAYLOAD.n_verts, NF = PAYLOAD.n_faces;
+
+// smooth vertex normals: area-weighted face normals accumulated per vertex
+const N = new Float32Array(NV*3);
+for(let f=0; f<NF; f++){
+  const a=F[f*3],b=F[f*3+1],c=F[f*3+2];
+  const ax=V[a*3],ay=V[a*3+1],az=V[a*3+2];
+  const e1x=V[b*3]-ax, e1y=V[b*3+1]-ay, e1z=V[b*3+2]-az;
+  const e2x=V[c*3]-ax, e2y=V[c*3+1]-ay, e2z=V[c*3+2]-az;
+  const nx=e1y*e2z-e1z*e2y, ny=e1z*e2x-e1x*e2z, nz=e1x*e2y-e1y*e2x;
+  N[a*3]+=nx; N[a*3+1]+=ny; N[a*3+2]+=nz;
+  N[b*3]+=nx; N[b*3+1]+=ny; N[b*3+2]+=nz;
+  N[c*3]+=nx; N[c*3+1]+=ny; N[c*3+2]+=nz;
+}
+for(let i=0;i<NV;i++){
+  const l=Math.hypot(N[i*3],N[i*3+1],N[i*3+2])||1;
+  N[i*3]/=l; N[i*3+1]/=l; N[i*3+2]/=l;
+}
+
+// Per-vertex CONCAVITY -- the cue that actually makes depressions readable.
+// Compare each vertex to the mean of its neighbours, along the normal: positive
+// means the surface curls away (a valley: concha, fossa, the groove behind the
+// helix rim), negative means a ridge crest. Diffuse lighting alone cannot show
+// this, which is why the surface looked flat.
+const CURV = new Float32Array(NV);
+{
+  const acc=new Float32Array(NV*3), cnt=new Float32Array(NV);
+  const edge=(a,b)=>{ acc[a*3]+=V[b*3]; acc[a*3+1]+=V[b*3+1]; acc[a*3+2]+=V[b*3+2]; cnt[a]++; };
+  for(let f=0;f<NF;f++){
+    const a=F[f*3],b=F[f*3+1],c=F[f*3+2];
+    edge(a,b); edge(b,a); edge(b,c); edge(c,b); edge(c,a); edge(a,c);
+  }
+  let scale=0, cn=0;
+  for(let i=0;i<NV;i++){
+    if(!cnt[i]) continue;
+    const dx=acc[i*3]/cnt[i]-V[i*3], dy=acc[i*3+1]/cnt[i]-V[i*3+1], dz=acc[i*3+2]/cnt[i]-V[i*3+2];
+    CURV[i]=dx*N[i*3]+dy*N[i*3+1]+dz*N[i*3+2];
+    scale+=Math.abs(CURV[i]); cn++;
+  }
+  scale=(scale/Math.max(cn,1))||1;              // normalise to this mesh's edge length
+  for(let i=0;i<NV;i++) CURV[i]=Math.max(-3,Math.min(3,CURV[i]/(scale*2.5)));
+}
+
+const mul=(a,b)=>{const o=new Float32Array(16);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;
+    for(let k=0;k<4;k++)s+=a[k*4+j]*b[i*4+k]; o[i*4+j]=s;} return o;};
+const perspective=(fovy,asp,n,f)=>{const t=1/Math.tan(fovy/2);
+  return new Float32Array([t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]);};
+const norm=v=>{const l=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/l,v[1]/l,v[2]/l];};
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+function lookAt(eye,c,up){
+  const f=norm(sub(c,eye)), s=norm(cross(f,up)), u=cross(s,f);
+  return new Float32Array([s[0],u[0],-f[0],0, s[1],u[1],-f[1],0, s[2],u[2],-f[2],0,
+    -(s[0]*eye[0]+s[1]*eye[1]+s[2]*eye[2]),
+    -(u[0]*eye[0]+u[1]*eye[1]+u[2]*eye[2]),
+     (f[0]*eye[0]+f[1]*eye[1]+f[2]*eye[2]), 1]);
+}
+
+const cv=document.getElementById("gl");
+const gl=cv.getContext("webgl",{antialias:true,alpha:false});
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function hex(h){
+  h=h.replace("#","");
+  if(h.length===3)h=h.split("").map(c=>c+c).join("");
+  return [parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),16)/255,parseInt(h.slice(4,6),16)/255];
+}
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
+function prog(vs,fs){const p=gl.createProgram();
+  gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));return p;}
+
+const meshVS = [
+  "attribute vec3 aPos; attribute vec3 aNor; attribute float aCurv;",
+  "uniform mat4 uMVP; varying vec3 vN; varying vec3 vP; varying float vC;",
+  "void main(){ vN=aNor; vP=aPos; vC=aCurv; gl_Position=uMVP*vec4(aPos,1.0); }"].join("\n");
+const meshFS = [
+  "precision mediump float;",
+  "varying vec3 vN; varying vec3 vP; varying float vC;",
+  "uniform vec3 uEye; uniform vec3 uBase; uniform vec3 uKey;",
+  "uniform float uRelief; uniform float uCrest;",
+  "void main(){",
+  "  vec3 n=normalize(vN); vec3 v=normalize(uEye-vP);",
+  "  if(dot(n,v)<0.0) n=-n;",
+  "  vec3 k=normalize(uKey);",
+  "  float d=max(dot(n,k),0.0);",
+  "  float f=max(dot(n,-k),0.0)*0.20;",
+  "  vec3 h=normalize(k+v);",
+  "  float sp=pow(max(dot(n,h),0.0),34.0)*0.28;",
+  "  float rim=pow(1.0-max(dot(n,v),0.0),3.0)*0.20;",
+  "  float relief=clamp(1.0-uRelief*vC,0.30,1.50);",
+  "  vec3 col=uBase*(0.18+0.82*d+f)*relief + sp + rim;",
+  // Ridge-centre cue. The annotation protocol says Point 0 sits at the CENTRE
+  // of the helix ridge across its thickness -- so tint by principal convexity:
+  // amber marks the crest line running along the middle of a ridge, teal marks
+  // valleys. The crest, not the silhouette, is where the landmark belongs.
+  "  if(uCrest>0.5){",
+  "    float cr=clamp(-vC,0.0,1.0);",
+  "    float va=clamp( vC,0.0,1.0);",
+  "    col=mix(col, vec3(1.00,0.70,0.26), cr*0.80);",
+  "    col=mix(col, vec3(0.16,0.45,0.52), va*0.55);",
+  "  }",
+  "  gl_FragColor=vec4(col,1.0);",
+  "}"].join("\n");
+const ptVS = [
+  "attribute vec3 aPos; uniform mat4 uMVP; uniform float uSize;",
+  "void main(){ gl_Position=uMVP*vec4(aPos,1.0); gl_PointSize=uSize; }"].join("\n");
+const ptFS = [
+  "precision mediump float; uniform vec3 uCol;",
+  "void main(){",
+  "  vec2 d=gl_PointCoord-vec2(0.5); float r=length(d);",
+  "  if(r>0.5) discard;",
+  "  gl_FragColor=vec4(mix(vec3(1.0),uCol,smoothstep(0.26,0.40,r)),smoothstep(0.5,0.42,r));",
+  "}"].join("\n");
+
+const meshProg=prog(meshVS,meshFS), ptProg=prog(ptVS,ptFS);
+
+function buf(data,target){const b=gl.createBuffer();
+  const t=target||gl.ARRAY_BUFFER;
+  gl.bindBuffer(t,b); gl.bufferData(t,data,gl.STATIC_DRAW); return b;}
+if(PAYLOAD.face_kind==="u32") gl.getExtension("OES_element_index_uint");
+const vbo=buf(V), nbo=buf(N), cbo=buf(CURV), ibo=buf(F,gl.ELEMENT_ARRAY_BUFFER);
+const idxType = PAYLOAD.face_kind==="u32" ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
+const dynBuf=gl.createBuffer();
+
+// Frame on the LANDMARKS, not the crop. The crop keeps a wide margin of head
+// (anchors 0 and 24 are defined against it), so sizing the camera to the crop
+// radius leaves the ear small and edge-on.
+const lmC=[0,0,0];
+for(let i=0;i<85;i++){ lmC[0]+=GT[i*3]; lmC[1]+=GT[i*3+1]; lmC[2]+=GT[i*3+2]; }
+for(let i=0;i<3;i++) lmC[i]/=85;
+let lmR=0;
+for(let i=0;i<85;i++){
+  lmR=Math.max(lmR,Math.hypot(GT[i*3]-lmC[0],GT[i*3+1]-lmC[1],GT[i*3+2]-lmC[2]));
+}
+
+// The 85 landmarks are near-planar, so the smallest eigenvector of their
+// covariance is the ear's outward normal -- the view an annotator works from.
+function earNormal(){
+  const c=[0,0,0,0,0,0,0,0,0];
+  for(let i=0;i<85;i++){
+    const d=[GT[i*3]-lmC[0],GT[i*3+1]-lmC[1],GT[i*3+2]-lmC[2]];
+    for(let a=0;a<3;a++) for(let b=0;b<3;b++) c[a*3+b]+=d[a]*d[b];
+  }
+  const tr=c[0]+c[4]+c[8];
+  // M = tr*I - C turns the SMALLEST eigenvector of C into the LARGEST of M,
+  // which plain power iteration finds.
+  const M=c.map((v,i)=> (i%4===0 ? tr-v : -v));
+  let v=[1,1,1];
+  for(let it=0; it<80; it++){
+    const w=[M[0]*v[0]+M[1]*v[1]+M[2]*v[2],
+             M[3]*v[0]+M[4]*v[1]+M[5]*v[2],
+             M[6]*v[0]+M[7]*v[1]+M[8]*v[2]];
+    const l=Math.hypot(w[0],w[1],w[2])||1;
+    v=[w[0]/l,w[1]/l,w[2]/l];
+  }
+  // Point it away from the mesh bulk so we look at the ear, not through the head.
+  let mc=[0,0,0];
+  for(let i=0;i<NV;i++){ mc[0]+=V[i*3]; mc[1]+=V[i*3+1]; mc[2]+=V[i*3+2]; }
+  for(let i=0;i<3;i++) mc[i]/=NV;
+  const out=[lmC[0]-mc[0],lmC[1]-mc[1],lmC[2]-mc[2]];
+  if(v[0]*out[0]+v[1]*out[1]+v[2]*out[2] < 0) v=[-v[0],-v[1],-v[2]];
+  return v;
+}
+const NRM=earNormal();
+let radius=lmR*3.0;
+let yaw=Math.atan2(NRM[0],NRM[2]);
+let pitch=Math.asin(Math.max(-1,Math.min(1,NRM[1])));
+let target=[lmC[0],lmC[1],lmC[2]], eye=[0,0,0], VP=null;
+function updateEye(){
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+  eye=[target[0]+radius*cp*Math.sin(yaw), target[1]+radius*sp, target[2]+radius*cp*Math.cos(yaw)];
+}
+function camBasis(){
+  const f=norm(sub(target,eye)), r=norm(cross(f,[0,1,0])), u=cross(r,f);
+  return {f:f,r:r,u:u};
+}
+function drawPoints(arr,col,size){
+  if(!arr||!arr.length)return;
+  gl.useProgram(ptProg);
+  gl.bindBuffer(gl.ARRAY_BUFFER,dynBuf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.DYNAMIC_DRAW);
+  const a=gl.getAttribLocation(ptProg,"aPos");
+  gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a,3,gl.FLOAT,false,0,0);
+  gl.uniformMatrix4fv(gl.getUniformLocation(ptProg,"uMVP"),false,VP);
+  gl.uniform3fv(gl.getUniformLocation(ptProg,"uCol"),col);
+  gl.uniform1f(gl.getUniformLocation(ptProg,"uSize"),size);
+  gl.drawArrays(gl.POINTS,0,arr.length/3);
+}
+function draw(){
+  const w=cv.clientWidth, h=cv.clientHeight, dpr=Math.min(window.devicePixelRatio||1,2);
+  if(!w||!h) return;
+  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){
+    cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  }
+  gl.viewport(0,0,cv.width,cv.height);
+  const bg=hex(css("--bg"));
+  gl.clearColor(bg[0],bg[1],bg[2],1); gl.enable(gl.DEPTH_TEST);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  updateEye();
+  VP=mul(perspective(Math.PI/5, w/h, radius*0.02, radius*8), lookAt(eye,target,[0,1,0]));
+
+  gl.useProgram(meshProg);
+  gl.uniformMatrix4fv(gl.getUniformLocation(meshProg,"uMVP"),false,VP);
+  gl.uniform3fv(gl.getUniformLocation(meshProg,"uEye"),new Float32Array(eye));
+  const base=hex(css("--panel"));
+  gl.uniform3f(gl.getUniformLocation(meshProg,"uBase"),base[0]*0.80,base[1]*0.72,base[2]*0.64);
+  // Key light sits up and to the LEFT of the camera. Anchored to the camera so
+  // it never falls behind the ear, but deliberately off-axis: a headlight
+  // (key == view direction) lights everything facing you equally, which is
+  // exactly what erased the curvature.
+  const cb=camBasis();
+  gl.uniform3f(gl.getUniformLocation(meshProg,"uKey"),
+    -cb.f[0]*0.50 - cb.r[0]*0.66 + cb.u[0]*0.56,
+    -cb.f[1]*0.50 - cb.r[1]*0.66 + cb.u[1]*0.56,
+    -cb.f[2]*0.50 - cb.r[2]*0.66 + cb.u[2]*0.56);
+  gl.uniform1f(gl.getUniformLocation(meshProg,"uRelief"), relief);
+  gl.uniform1f(gl.getUniformLocation(meshProg,"uCrest"), crestMode?1.0:0.0);
+  const ap=gl.getAttribLocation(meshProg,"aPos"), an=gl.getAttribLocation(meshProg,"aNor");
+  const ac=gl.getAttribLocation(meshProg,"aCurv");
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbo); gl.enableVertexAttribArray(ap);
+  gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,nbo); gl.enableVertexAttribArray(an);
+  gl.vertexAttribPointer(an,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,cbo); gl.enableVertexAttribArray(ac);
+  gl.vertexAttribPointer(ac,1,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ibo);
+  gl.drawElements(gl.TRIANGLES,NF*3,idxType,0);
+
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.disable(gl.DEPTH_TEST);
+  const pts=[];
+  for(let i=0;i<ANCH.length;i++){ const p=placed[ANCH[i]]; if(p){pts.push(p[0],p[1],p[2]);} }
+  drawPoints(pts, hex(css("--accent")), 20);
+  if(hover) drawPoints(hover, hex(css("--warn")), 13);
+  if(revealed){
+    const g=[];
+    for(let i=0;i<ANCH.length;i++){ const k=ANCH[i]; g.push(GT[k*3],GT[k*3+1],GT[k*3+2]); }
+    drawPoints(g, hex(css("--gt")), 18);
+  }
+  gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
+  updateLabels();
+}
+
+function project(x,y,z){
+  // VP is column-major; w<=0 means the point is behind the eye
+  const w = VP[3]*x + VP[7]*y + VP[11]*z + VP[15];
+  if(w<=0) return null;
+  const cx = VP[0]*x + VP[4]*y + VP[8]*z + VP[12];
+  const cy = VP[1]*x + VP[5]*y + VP[9]*z + VP[13];
+  return [(cx/w*0.5+0.5)*cv.clientWidth, (1-(cy/w*0.5+0.5))*cv.clientHeight];
+}
+function updateLabels(){
+  const box=document.getElementById("labels");
+  let html="";
+  for(let i=0;i<ANCH.length;i++){
+    const k=ANCH[i], pt=placed[k];
+    if(!pt) continue;
+    const s2=project(pt[0],pt[1],pt[2]); if(!s2) continue;
+    html += "<div class=\"lab"+(i===cur?" cur":"")+"\" style=\"left:"+s2[0].toFixed(1)+
+            "px;top:"+(s2[1]-20).toFixed(1)+"px\">"+k+"</div>";
+  }
+  if(revealed){
+    for(let i=0;i<ANCH.length;i++){
+      const k=ANCH[i];
+      const s2=project(GT[k*3],GT[k*3+1],GT[k*3+2]); if(!s2) continue;
+      html += "<div class=\"lab gt\" style=\"left:"+s2[0].toFixed(1)+
+              "px;top:"+(s2[1]+20).toFixed(1)+"px\">"+k+"</div>";
+    }
+  }
+  box.innerHTML=html;
+}
+
+function rayAt(px,py){
+  const b=camBasis();
+  const t=Math.tan(Math.PI/10), asp=cv.clientWidth/cv.clientHeight;
+  const x=(px/cv.clientWidth)*2-1, y=1-(py/cv.clientHeight)*2;
+  return norm([b.f[0]+b.r[0]*x*asp*t+b.u[0]*y*t,
+               b.f[1]+b.r[1]*x*asp*t+b.u[1]*y*t,
+               b.f[2]+b.r[2]*x*asp*t+b.u[2]*y*t]);
+}
+function pick(px,py){
+  const d=rayAt(px,py); let best=Infinity, hit=null;
+  for(let i=0;i<NF;i++){                                    // Moller-Trumbore
+    const a=F[i*3]*3,b=F[i*3+1]*3,c=F[i*3+2]*3;
+    const e1=[V[b]-V[a],V[b+1]-V[a+1],V[b+2]-V[a+2]];
+    const e2=[V[c]-V[a],V[c+1]-V[a+1],V[c+2]-V[a+2]];
+    const p=cross(d,e2), det=e1[0]*p[0]+e1[1]*p[1]+e1[2]*p[2];
+    if(det>-1e-9&&det<1e-9) continue;
+    const inv=1/det, tv=[eye[0]-V[a],eye[1]-V[a+1],eye[2]-V[a+2]];
+    const u=(tv[0]*p[0]+tv[1]*p[1]+tv[2]*p[2])*inv; if(u<0||u>1) continue;
+    const q=cross(tv,e1), v=(d[0]*q[0]+d[1]*q[1]+d[2]*q[2])*inv;
+    if(v<0||u+v>1) continue;
+    const t=(e2[0]*q[0]+e2[1]*q[1]+e2[2]*q[2])*inv;
+    if(t>1e-6&&t<best){ best=t; hit=[eye[0]+d[0]*t,eye[1]+d[1]*t,eye[2]+d[2]*t]; }
+  }
+  return hit;
+}
+
+const placed={}; let cur=0, revealed=false, hover=null;
+const kindOf=k=>PAYLOAD.anchor_kind[String(k)]||"local";
+const defOf =k=>PAYLOAD.anchor_defs[String(k)]||"";
+
+function renderTask(){
+  const k=ANCH[cur], t=document.getElementById("task");
+  t.querySelector(".idx").innerHTML =
+    "Index "+k+" <span class=\"kind k-"+kindOf(k)+"\">"+kindOf(k)+"</span>";
+  t.querySelector(".def").textContent = defOf(k);
+  const lis=document.querySelectorAll("#list li");
+  for(let i=0;i<lis.length;i++){
+    lis[i].classList.toggle("cur", i===cur);
+    lis[i].classList.toggle("done", !!placed[ANCH[i]]);
+  }
+  document.getElementById("reveal").disabled = Object.keys(placed).length===0;
+}
+function buildList(){
+  const ol=document.getElementById("list");
+  ol.innerHTML = ANCH.map(function(k,i){
+    return "<li data-i=\""+i+"\"><span class=\"dot\"></span><span class=\"n\">"+k+"</span>"+
+           "<span class=\"kind k-"+kindOf(k)+"\">"+kindOf(k)+"</span><span class=\"d\"></span></li>";
+  }).join("");
+  ol.querySelectorAll("li").forEach(function(li){
+    li.onclick=function(){ cur=+li.dataset.i; renderTask(); draw(); };
+  });
+}
+
+let drag=null, hoverRAF=null, pendingHover=null;
+let relief=0.55, crestMode=false;
+cv.addEventListener("pointerdown",function(e){
+  drag={x:e.clientX,y:e.clientY,pan:e.shiftKey,moved:0};
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener("pointermove",function(e){
+  const r=cv.getBoundingClientRect();
+  if(drag){
+    const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+    drag.moved+=Math.abs(dx)+Math.abs(dy); drag.x=e.clientX; drag.y=e.clientY;
+    if(drag.pan){
+      const b=camBasis(), s=radius*0.0018;
+      for(let i=0;i<3;i++) target[i]-= b.r[i]*dx*s - b.u[i]*dy*s;
+    } else {
+      yaw-=dx*0.008; pitch=Math.max(-1.5,Math.min(1.5,pitch+dy*0.008));
+    }
+    hover=null; draw(); return;
+  }
+  // pick() is brute-force over ~49k triangles (~32ms), so hovering every
+  // pointermove would stutter. Coalesce to at most one pick per frame; clicks
+  // still pick exactly, on the real cursor position.
+  pendingHover=[e.clientX-r.left, e.clientY-r.top];
+  if(hoverRAF===null) hoverRAF=requestAnimationFrame(runHover);
+});
+function runHover(){
+  hoverRAF=null;
+  if(!pendingHover) return;
+  const h=pick(pendingHover[0], pendingHover[1]);
+  pendingHover=null;
+  hover=h;
+  document.getElementById("hud").textContent = h
+    ? "x "+h[0].toFixed(1)+"   y "+h[1].toFixed(1)+"   z "+h[2].toFixed(1)+"   (mm, ear-centred)"
+    : "off surface";
+  draw();
+}
+cv.addEventListener("pointerup",function(e){
+  const wasDrag = drag && drag.moved>4; drag=null;
+  if(wasDrag) return;
+  const r=cv.getBoundingClientRect();
+  const h=pick(e.clientX-r.left, e.clientY-r.top);
+  if(!h) return;
+  placed[ANCH[cur]]=h;
+  if(cur<ANCH.length-1) cur++;
+  renderTask(); draw();
+});
+cv.addEventListener("wheel",function(e){
+  e.preventDefault();
+  radius*=Math.exp(e.deltaY*0.0012);
+  radius=Math.max(lmR*0.5,Math.min(lmR*12,radius));
+  draw();
+},{passive:false});
+
+document.getElementById("undo").onclick=function(){
+  if(placed[ANCH[cur]]) delete placed[ANCH[cur]];
+  else if(cur>0){ cur--; delete placed[ANCH[cur]]; }
+  revealed=false; document.getElementById("results").classList.add("hidden");
+  renderTask(); draw();
+};
+document.getElementById("skip").onclick=function(){
+  if(cur<ANCH.length-1) cur++;
+  renderTask(); draw();
+};
+
+document.getElementById("reveal").onclick=function(){
+  revealed=true;
+  const rows=[]; let sum=0, n=0; const byKind={};
+  for(let i=0;i<ANCH.length;i++){
+    const k=ANCH[i], p=placed[k];
+    if(!p){ rows.push(null); continue; }
+    const d=Math.hypot(p[0]-GT[k*3],p[1]-GT[k*3+1],p[2]-GT[k*3+2]);
+    rows.push(d); sum+=d; n++;
+    if(!byKind[kindOf(k)]) byKind[kindOf(k)]=[];
+    byKind[kindOf(k)].push(d);
+  }
+  const lis=document.querySelectorAll("#list li");
+  for(let i=0;i<lis.length;i++){
+    lis[i].querySelector(".d").textContent = rows[i]==null ? "--" : rows[i].toFixed(2);
+  }
+  const kindRows=Object.keys(byKind).map(function(k){
+    const v=byKind[k], m=v.reduce(function(a,b){return a+b;},0)/v.length;
+    return "<tr><td><span class=\"kind k-"+k+"\">"+k+"</span></td>"+
+           "<td class=\"num\">"+v.length+"</td><td class=\"num\">"+m.toFixed(3)+"</td></tr>";
+  }).join("");
+  document.getElementById("results").innerHTML =
+    "<table><tr><th colspan=\"2\">Your mean anchor error</th></tr>"+
+    "<tr><td colspan=\"2\"><span class=\"score\">"+(n?(sum/n).toFixed(3):"--")+"</span> mm "+
+    "<span style=\"color:var(--muted)\">over "+n+" placed</span></td></tr></table>"+
+    "<table><tr><th>definition type</th><th class=\"num\">n</th><th class=\"num\">mean mm</th></tr>"+
+    kindRows+"</table>"+
+    "<table><tr><th colspan=\"2\">for comparison (held-out, 100 ears)</th></tr>"+
+    "<tr><td>our model, anchors only</td><td class=\"num\">1.644</td></tr>"+
+    "<tr><td>registration prior alone</td><td class=\"num\">3.910</td></tr></table>"+
+    "<div class=\"legend\">Blue markers are ground truth. Copy your placements to score "+
+    "the full 85 points offline:</div><textarea readonly>"+
+    JSON.stringify({subject:PAYLOAD.subject,side:PAYLOAD.side,centre:PAYLOAD.centre,placed:placed})+
+    "</textarea>";
+  document.getElementById("results").classList.remove("hidden");
+  draw();
+};
+
+document.getElementById("subtitle").textContent =
+  PAYLOAD.subject+" "+PAYLOAD.side+" ear - "+NF.toLocaleString()+" triangles - "+
+  "place all 15 anchors from their written definitions, then reveal";
+// UI scale: remembered per browser, wrapped because storage can throw
+// (private windows, blocked site data) -- the page must work without it.
+let uiScale=22;
+try{ const v=parseFloat(localStorage.getItem("pab_ui")); if(v>=12&&v<=48) uiScale=v; }catch(e){}
+function applyScale(){
+  document.documentElement.style.fontSize=uiScale+"px";
+  try{ localStorage.setItem("pab_ui",String(uiScale)); }catch(e){}
+  draw();
+}
+document.getElementById("bigger").onclick=function(){ uiScale=Math.min(48,uiScale+2); applyScale(); };
+document.getElementById("smaller").onclick=function(){ uiScale=Math.max(12,uiScale-2); applyScale(); };
+applyScale();
+document.getElementById("relief").oninput=function(e){ relief=parseFloat(e.target.value); draw(); };
+document.getElementById("crest").onclick=function(){ crestMode=!crestMode; draw(); };
+
+// The annotation protocol is explicitly multi-view: place from the lateral
+// view (~85-95 degrees from frontal), then verify from a superior/top view
+// that the point sits centrally across the ridge thickness rather than on a
+// slope. These two buttons are that workflow.
+const LAT={yaw:Math.atan2(NRM[0],NRM[2]), pitch:Math.asin(Math.max(-1,Math.min(1,NRM[1])))};
+function setDir(e){
+  yaw=Math.atan2(e[0],e[2]);
+  pitch=Math.asin(Math.max(-1,Math.min(1,e[1])));
+}
+document.getElementById("lateral").onclick=function(){
+  yaw=LAT.yaw; pitch=LAT.pitch; draw();
+};
+document.getElementById("tilt").onclick=function(){
+  // rotate the camera 90 degrees about the screen-horizontal axis (Rodrigues),
+  // so "top" is always defined relative to what you are currently looking at
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+  const e=[cp*Math.sin(yaw), sp, cp*Math.cos(yaw)];
+  const r=camBasis().r;
+  const dot=r[0]*e[0]+r[1]*e[1]+r[2]*e[2];
+  const cx=[r[1]*e[2]-r[2]*e[1], r[2]*e[0]-r[0]*e[2], r[0]*e[1]-r[1]*e[0]];
+  const c=Math.cos(Math.PI/2), sn=Math.sin(Math.PI/2);
+  setDir([e[0]*c+cx[0]*sn+r[0]*dot*(1-c),
+          e[1]*c+cx[1]*sn+r[1]*dot*(1-c),
+          e[2]*c+cx[2]*sn+r[2]*dot*(1-c)]);
+  draw();
+};
+
+buildList(); renderTask(); updateEye();
+new ResizeObserver(draw).observe(cv);
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",draw);
+draw();
+</script>
