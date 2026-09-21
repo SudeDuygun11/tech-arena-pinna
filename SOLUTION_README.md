@@ -5,6 +5,10 @@ landmarks per ear (outer helix 25pts, concha outline 30pts, inner helix 20pts,
 superior antihelix 10pts) from a 3D head mesh, scored by mean Euclidean
 landmark distance.
 
+**Current best: 1.2822 mm** on 400 held-out ears (3-fold subject-wise CV, fully nested
+post-processing). See [Current best solution](#current-best-solution-12822-mm) for the pipeline
+diagram, every design decision with its evidence, and how to reproduce it.
+
 ## Purpose
 
 Individual pinna shape drives a person's head-related transfer function (HRTF),
@@ -13,7 +17,148 @@ acoustically per person doesn't scale, so extracting anthropometric pinna
 landmarks from a 3D scan is a practical step toward cheap individualized
 spatial audio.
 
-## Architecture
+## Current best solution: 1.2822 mm
+
+**1.2822 mm** mean landmark error over **400 held-out ears** (200 subjects, both ears), 3-fold
+subject-wise cross-validation, every fitted component nested inside the folds. The predictions
+behind this number are in `results/best_1p2822_predictions.npz` and can be rebuilt with
+`scripts/build_best_1p2822.py` (see [Reproducing](#reproducing-12822)).
+
+| stage | error (mm) | change | what it adds |
+|---|---:|---:|---|
+| Run A: one-pass pipeline (anchor + polish networks) | 1.3736 | | independently trained model |
+| Run B: two-pass registration + exact surface snap | 1.3653 | | independently trained model |
+| Average of A and B, re-spaced | 1.3314 | −0.034 | variance reduction |
+| + T2 relational correction | 1.2905 | −0.041 | uses where the *other* landmarks are |
+| + local-descriptor refinement | **1.2822** | −0.008 | uses local surface shape at the 15 anchors |
+
+### Pipeline
+
+```mermaid
+flowchart TD
+    IN["3D head scan<br/>200 subjects x 2 ears"] --> CAN["Canonical frame<br/>mirror right ears into the left-ear frame<br/>crop the ear region"]
+    CAN --> REG["1a  Registration prior<br/>11 typical reference ears (Procrustes medoids)<br/>rigid ICP x16, then thin-plate-spline warp<br/>reference landmarks carried over and averaged"]
+    REG --> COR["1b  Anchor correction<br/>PointNet on a 7 mm surface patch<br/>one network for all 15 anchors, 3-seed ensemble"]
+    COR -.->|"Run B only: pin ICP to the corrected anchors, re-register, re-correct"| REG
+    COR --> BLEND["2  Blend interpolation<br/>anchor corrections blended along each segment<br/>uniform re-spacing, exact triangle-surface snap within 3 mm"]
+    BLEND --> POL["2b  Polish network<br/>refines all 85 points, 3-seed ensemble"]
+    POL --> RESP["Final uniform arc-length re-spacing<br/>inside every anchor-to-anchor segment (always last)"]
+    RESP --> RA["Run A  (1.3736)"]
+    RESP --> RB["Run B  (1.3653)"]
+    RA --> AVG["Average of the two runs + re-spacing  (1.3314)"]
+    RB --> AVG
+    AVG --> T2["T2 relational correction  (1.2905)<br/>ridge from all 85 predicted points to each anchor error<br/>per-anchor step size chosen on inner folds"]
+    T2 --> LOC["Local-descriptor refinement  (1.2822)<br/>ridge on patch descriptors around each anchor<br/>per-anchor step size chosen on inner folds"]
+    LOC --> OUT["85 landmarks per ear<br/>mirrored back for right ears"]
+```
+
+Stages 1a to the final re-spacing form one trained pipeline (`src/pipeline.py`); it was trained
+twice, as Run A and Run B, in `scripts/cross_validate.py`. Everything after "Average" operates on the
+saved out-of-fold predictions and needs no retraining (`scripts/build_best_1p2822.py`,
+`scripts/local_refine.py`).
+
+### Design decisions
+
+**Why only 15 points are learned.** The ground truth has 15 anchors judged by a human annotator;
+the other 70 are produced by an algorithm that redistributes points evenly between anchors
+(validated on all 200 subjects and confirmed by the organisers). Model capacity is therefore
+spent on the 15 judgements, and the 70 are derived from them.
+
+*Base pipeline (trained twice)*
+
+| decision | rationale | evidence |
+|---|---|---|
+| Canonical left-ear frame: mirror right ears | one model serves both ears and sees twice the data | fixing a triangle-winding error on mirrored meshes gained 0.0605 mm on the full run |
+| Registration prior instead of regressing coordinates from the mesh | with 133-200 training ears direct regression is data-starved; registration transfers the annotators' placement from similar ears and leaves only a small residual to learn | registration alone 3.86 mm; learned anchor correction 2.87 mm (-26%) |
+| 11 reference ears chosen by Procrustes typicality, averaged | typical ears warp best onto an unseen ear; averaging reduces the variance of any single warp | k = 7 to 11 was part of the step that moved 1.5326 to 1.3736; TPS beat CPD and a TPS/CPD hybrid |
+| Rigid ICP with 16 iterations and no trimming | ICP had not converged at 8 iterations, and trimming discarded good correspondences in a high-overlap crop | registration-only: 16 iterations -0.1286 mm, no trimming -0.2165 mm |
+| Learned per-anchor correction from a 7 mm, 256-point patch (xyz, normal, clipped curvature) | local surface shape is what a human uses to place a junction; a shared per-point MLP with max-pooling is permutation invariant | per-anchor embedding lets one network serve all 15 anchors and pool their data |
+| Large network (64/128/256 wide, embedding 32, head 128/64) and a 3-seed ensemble | underfitting, not overfitting, dominated at this data size; members make different mistakes | large + multi-seed: 1.7080 to 1.5931 mm (-7%) |
+| Training patches come from leakage-free inner cross-fitting, with 1.5 mm jitter and 15% point dropout | the network must see the registration errors it will meet at test time; each training ear is registered with a template that excludes it | inner 4-fold cross-fitting inside every outer fold |
+| Blend interpolation for the 70 in-between points | keeps the registration's own contour shape between anchors and propagates the anchor corrections linearly | the prior's path matters most on the outer helix (10.8 mm deep between anchors) |
+| Uniform arc-length re-spacing inside each anchor segment, applied last | the ground truth was built exactly this way (gap spacing CV 1.1% to 21.8%); it must run after the polish network or the polish undoes it | 1.5326 to 1.3837 mm (-9.7%) |
+| Exact triangle-surface snap within 3 mm, not nearest-vertex | ground truth sits 0.0054 mm from the surface but 0.2299 mm from the nearest vertex | -0.0172 mm, better on 391 of 400 ears |
+| Polish network on all 85 points | learns the residual the deterministic interpolation leaves behind | -31% at the 100-subject stage |
+| Two-pass registration in Run B (pin ICP to the corrected anchors) | anchors fix the 6-DOF pose even when rough | registration-only -0.43 mm on non-anchor points; end to end only -0.0083 mm (t = -0.87), so its value is as a second, differently behaving ensemble member |
+
+*Post-processing on out-of-fold predictions*
+
+| decision | rationale | evidence |
+|---|---|---|
+| Average Run A and Run B, then re-space | cheap variance reduction | limited: about 90% of the error is shared between the runs (1.3653 to 1.3314) |
+| **T2 relational correction**: per anchor, ridge from all 85 predicted points (relative to that anchor) to the anchor's error | anchors 6, 22, 64 and 74 have almost no local surface signal; their position is defined by the rest of the ear (organiser: 64 is opposite 6, 74 is ten steps from 64) | 1.3314 to 1.2905; on Run B alone 1.3653 to 1.3127 (paired t = -7.59) |
+| Linear ridge, regularisation from subject-grouped cross-validation, per-anchor step size in {0, .25, .5, .75, 1} chosen on inner out-of-fold proposals | shrinks each correction toward zero where the fit is unreliable | six different linear formulations all saturate at about -0.045; an MLP, gradient-boosted trees and stage-wise ordering were no better |
+| **Local-descriptor refinement** at the 15 anchors: ridge on 4x4x4-grid descriptors of the 7 mm patch (occupancy, normals, curvature, shape index and curvedness at 2 and 3 mm, ridge-direction tensor and turning, spin image, local-surface-patch histogram, depth, fold enclosure) | the junction anchors carry local information that the relational step cannot see | -0.0083 mm (t = -3.98); gains at anchors 0, 84, 55, 54 and 22; the basic descriptors alone give 1.2846, the richer set adds -0.0024 |
+
+### Evaluation protocol
+
+- 200 subjects, both ears: 400 ears. Folds are split by **subject**, so an ear and its twin are always in the same fold; 3 outer folds, seed 0.
+- Anchor-network training data comes from an inner 4-fold cross-fit, so no training patch was produced by a template that contained its own ear.
+- T2 and the local refinement are **fully nested**: ridge strengths and per-anchor step sizes are chosen using only training-fold ears (inner cross-fitting), then a model fitted on the training folds predicts the held-out fold once.
+- Comparisons are paired over ears (paired t-test); training is not bit-deterministic on GPU, so single-run differences below about 0.05 mm are within noise.
+- One caveat: the sequence of ideas tried was chosen while looking at these 400 out-of-fold predictions. Each fit is nested, but the choice of which ideas to keep is not, so treat the last few hundredths as slightly optimistic.
+
+### Results breakdown
+
+| contour | Run B (start) | final |
+|---|---:|---:|
+| outer helix | 1.480 | **1.411** |
+| concha outline | 1.005 | **0.974** |
+| inner helix | 1.771 | **1.593** |
+| superior antihelix | 1.347 | **1.263** |
+| **all 85 points** | 1.365 | **1.282** |
+
+By fold: 1.2465, 1.3137, 1.2865. The final predictions beat Run B on 282 of 400 ears (paired t = -10.2).
+Anchors average 1.336 mm and the 70 in-between points 1.271 mm.
+
+| anchor | 0 | 6 | 22 | 24 | 25 | 33 | 42 | 46 | 50 | 54 | 55 | 64 | 74 | 75 | 84 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Run B | 1.54 | 1.60 | 1.96 | 1.31 | 1.08 | 1.62 | 1.37 | 0.68 | 0.84 | 0.82 | 1.23 | 1.48 | 3.36 | 1.55 | 1.61 |
+| final | 1.43 | 1.36 | 1.91 | 1.27 | 1.01 | 1.52 | 1.30 | 0.64 | 0.81 | 0.77 | 1.07 | 1.39 | 2.71 | 1.41 | 1.44 |
+
+### What limits this pipeline
+
+- **82% of the remaining error is in the 70 in-between points, mostly along the contour**: they sit about 0.57 mm from the true curve but about 1.03 mm from the right position along it, because an anchor that slides along the rim drags its whole segment.
+- With **perfect anchors** and everything else as is, the error would be 0.634 mm; with a perfect curve shape but our anchors, 1.062 mm. Anchor position along the rim is what matters.
+- **Anchors 6, 22, 64 and 74** have no local signal of their own. The organiser's construction rules recover them almost exactly on *true* curves (anchor 6: median 0.047 mm) but cannot be applied to predicted curves: even a perfect curve gains at most 0.045 mm once the rules' outlier ears are gated.
+- **Landmark 74** (2.71 mm) remains the single largest error.
+- More training data still helps: a single network improves about 0.10 mm per doubling of the training subjects (33, 66, 100, 133 people: 1.928, 1.774, 1.732, 1.675 on a fold-0 screen).
+
+### Experiments after this pipeline that did not improve it
+
+| idea | result |
+|---|---|
+| Wing loss + rotation/scale augmentation + SWA + per-ear reference selection (best 5 of 40 by surface fit) | -0.126 mm on fold-0 anchor-only screens (1.712 to 1.586); **did not carry through the polish stage** in the full pipeline (interim: fold 0 scored 1.3131 vs 1.3112 for the previous pipeline on the same ears) |
+| Reference-agreement statistics as network inputs | no effect (1.586 vs 1.586) |
+| Patches rotated into a local contour/normal frame | worse (+0.15 mm); a mesh-free control confirmed it is real: the prior's error is a constant offset in the canonical frame |
+| Curvedness / shape index / "rich" network inputs, AdamW, learned per-anchor loss weights, per-contour networks, cosine learning rate | no gain or worse |
+| Organiser construction rules on predicted curves | no gain over the network |
+| Arc-fraction position prior for anchors | worse; natural variation (1.4-2.5 mm) exceeds the current along-rim error |
+
+### Reproducing 1.2822
+
+```bash
+# post-processing only (minutes): rebuilds 1.3314 -> 1.2905 -> 1.2822 from the two saved runs
+python scripts/build_best_1p2822.py
+
+# regenerate the local-descriptor step from meshes (about an hour the first time)
+python scripts/local_refine.py
+
+# retrain the two runs (about 4-5 h each); Run B adds --two-pass-registration
+python scripts/cross_validate.py --data-dir "2026 Munich Tech Arena - Datas" \
+    --n-subjects 200 --outer-folds 3 --inner-folds 4 --k-references 11 --epochs 150 \
+    --with-correction --with-polish --capacity large --multi-seed-ensemble --n-seeds 3 \
+    --save-predictions results/<name>.npz
+```
+
+Run A's saved file (`results/tier2_trim0_iters16_kref11.npz`) predates the exact-surface snap; Run B's
+(`results/twopass_surfsnap.npz`) includes it. Retraining is not bit-for-bit deterministic on GPU, so
+re-trained runs will differ from the saved ones by up to a few hundredths of a millimetre; the saved
+prediction files reproduce every post-processing number exactly.
+
+---
+
+## Base pipeline overview (stages 1a-2b, earlier description)
 
 Two-stage hybrid, chosen because only 15 of the 85 points are true anatomical
 anchors judged independently by a human; the other 70 are algorithmically
@@ -47,10 +192,15 @@ mesh -> registration (1a) -> anchor correction (1b)
 | + Polish network (100 subjects) | 1.98 | — | −31% |
 | + Full 200-subject scale | 1.7503 | 400 | −12% |
 | + More epochs & snapshot ensembling | 1.7080 | 400 | −2% |
-| + Large capacity & multi-seed ensemble | **1.5931** | **400** | −7% |
+| + Large capacity & multi-seed ensemble | 1.5931 | 400 | −7% |
+| + mirror-winding fix (right ears) | 1.5326 | 400 | −0.0605 |
+| + uniform re-spacing (last), 16 ICP iterations, no trimming, 11 references (Run A) | 1.3736 | 400 | −0.159 |
+| + exact surface snap and two-pass registration (Run B) | 1.3653 | 400 | −0.008 |
+| + average of Runs A and B, re-spaced | 1.3314 | 400 | −0.034 |
+| + T2 relational correction | 1.2905 | 400 | −0.041 |
+| + local-descriptor refinement | **1.2822** | **400** | −0.008 |
 
-**Best validated result: 1.5931mm** — `--capacity large --multi-seed-ensemble
---n-seeds 3`, full 3-fold subject-wise CV, leakage-free.
+**Best validated result at the time of these rows: 1.5931mm** (`--capacity large --multi-seed-ensemble --n-seeds 3`, full 3-fold subject-wise CV, leakage-free). It has since been superseded by the later rows above; the current best is 1.2822mm (see the section at the top).
 
 > A previously-reported **1.58mm** was withdrawn. It came from a
 > `--train-fraction 0.90` split scored on **40 ears**, not the 400-ear CV every
